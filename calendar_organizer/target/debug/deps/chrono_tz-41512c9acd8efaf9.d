@@ -1,0 +1,15 @@
+/home/dp/workspace/calorg/calendar_organizer/target/debug/deps/chrono_tz-41512c9acd8efaf9.rmeta: /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/lib.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/binary_search.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/directory.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/timezone_impl.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/timezones.rs /home/dp/workspace/calorg/calendar_organizer/target/debug/build/chrono-tz-6d6fddcc7989c29b/out/directory.rs /home/dp/workspace/calorg/calendar_organizer/target/debug/build/chrono-tz-6d6fddcc7989c29b/out/timezones.rs
+
+/home/dp/workspace/calorg/calendar_organizer/target/debug/deps/libchrono_tz-41512c9acd8efaf9.rlib: /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/lib.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/binary_search.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/directory.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/timezone_impl.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/timezones.rs /home/dp/workspace/calorg/calendar_organizer/target/debug/build/chrono-tz-6d6fddcc7989c29b/out/directory.rs /home/dp/workspace/calorg/calendar_organizer/target/debug/build/chrono-tz-6d6fddcc7989c29b/out/timezones.rs
+
+/home/dp/workspace/calorg/calendar_organizer/target/debug/deps/chrono_tz-41512c9acd8efaf9.d: /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/lib.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/binary_search.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/directory.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/timezone_impl.rs /home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/timezones.rs /home/dp/workspace/calorg/calendar_organizer/target/debug/build/chrono-tz-6d6fddcc7989c29b/out/directory.rs /home/dp/workspace/calorg/calendar_organizer/target/debug/build/chrono-tz-6d6fddcc7989c29b/out/timezones.rs
+
+/home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/lib.rs:
+/home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/binary_search.rs:
+/home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/directory.rs:
+/home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/timezone_impl.rs:
+/home/dp/.cargo/registry/src/github.com-1ecc6299db9ec823/chrono-tz-0.8.3/src/timezones.rs:
+/home/dp/workspace/calorg/calendar_organizer/target/debug/build/chrono-tz-6d6fddcc7989c29b/out/directory.rs:
+/home/dp/workspace/calorg/calendar_organizer/target/debug/build/chrono-tz-6d6fddcc7989c29b/out/timezones.rs:
+
+# env-dep:OUT_DIR=/home/dp/workspace/calorg/calendar_organizer/target/debug/build/chrono-tz-6d6fddcc7989c29b/out

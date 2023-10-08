@@ -1,0 +1,39 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//xyz Corp//NONSGML PDA Calendar Version 1.0//EN
+BEGIN:VEVENT
+DTSTAMP:19960704T120000Z
+UID:b68378cf-872d-44f1-9703-5e3725c56e71
+ORGANIZER:mailto:jsmith@example.com
+DTSTART:19960918T143000Z
+DTEND:19960920T220000Z
+STATUS:CONFIRMED
+CATEGORIES:CONFERENCE
+SUMMARY:Networld+Interop Conference
+DESCRIPTION:Networld+Interop Conference and Exhibit\nAtlanta World Congress
+  Center\nAtlanta\, Georgia
+CID: 12512512512512515125
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:19960918T142000Z
+DESCRIPTION:Reminder
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+
+BEGIN:VEVENT
+DTSTART:20220330T114500Z
+DTEND:20220330T120000Z
+DTSTAMP:20231006T143727Z
+UID:e9im6r31d5miqobjedkn6t1dehp
+CLASS:PUBLIC
+CREATED:20220328T123225Z
+DESCRIPTION: some text
+LAST-MODIFIED:20220328T123225Z
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:🚌 Travel
+TRANSP:OPAQUE
+END:VEVENT
+
+IcalCalendar { properties: [Property { name: "VERSION", params: None, value: Some("2.0") }, Property { name: "PRODID", params: None, value: Some("-//xyz Corp//NONSGML PDA Calendar Version 1.0//EN") }], events: [IcalEvent { properties: [Property { name: "UID", params: None, value: Some("b68378cf-872d-44f1-9703-5e3725c56e71") }, Property { name: "DTSTAMP", params: None, value: Some("19960704T120000Z") }, Property { name: "ORGANIZER", params: None, value: Some("mailto:jsmith@example.com") }, Property { name: "DTSTART", params: None, value: Some("19960918T143000Z") }, Property { name: "DTEND", params: None, value: Some("19960920T220000Z") }, Property { name: "STATUS", params: None, value: Some("CONFIRMED") }, Property { name: "CATEGORIES", params: None, value: Some("CONFERENCE") }, Property { name: "SUMMARY", params: None, value: Some("Networld+Interop Conference") }, Property { name: "DESCRIPTION", params: None, value: Some("Networld+Interop Conference and Exhibit\\nAtlanta World Congress Center\\nAtlanta\\, Georgia") }], alarms: [IcalAlarm { properties: [Property { name: "ACTION", params: None, value: Some("DISPLAY") }, Property { name: "TRIGGER", params: None, value: Some("19960918T142000Z") }, Property { name: "DESCRIPTION", params: None, value: Some("Reminder") }] }] }], alarms: [], todos: [], journals: [], free_busys: [], timezones: [] }
