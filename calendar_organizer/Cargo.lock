@@ -132,6 +132,7 @@ dependencies = [
  "google-calendar",
  "ical",
  "ics",
+ "rand",
 ]
 
 [[package]]

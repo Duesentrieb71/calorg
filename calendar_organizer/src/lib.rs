@@ -1,22 +1,15 @@
 extern crate ical;
-use crate::ical::{generator::*, *};
-use chrono::prelude::*;
+use crate::ical::generator::{IcalCalendar, Property};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Europe::Berlin;
-use ical::parser::Component;
 use ical::IcalParser;
-use ical::LineReader;
-use ical::*;
-use ics::properties::{
-    Action, Attach, Attendee, Categories, Comment, Description, DtEnd, DtStart, Due, Organizer,
-    Repeat, Sequence, Status, Summary, Trigger,
-};
-use ics::{escape_text, Alarm, Event, ICalendar, ToDo};
+use ics::properties::*;
+use ics::{Alarm, Event, ICalendar};
+use rand::Rng;
+use std::any::Any;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::BufReader;
-use std::io::BufWriter;
-use std::time::Duration;
+use std::io::{BufReader, Error, Result};
 
 pub fn naive_convert_berlin_to_utc(naive_datetime: NaiveDateTime) -> NaiveDateTime {
     let datetime: DateTime<chrono_tz::Tz> = Berlin.from_local_datetime(&naive_datetime).unwrap();
@@ -30,6 +23,39 @@ pub fn naive_convert_utc_to_berlin(naive_datetime: NaiveDateTime) -> NaiveDateTi
     datetime_berlin.naive_local()
 }
 
+//supported properties
+pub const CALORG_KEYS: [&str; 20] = [
+    "UID",
+    "COMMENT",
+    "DTSTART",
+    "DTEND",
+    "SUMMARY",
+    "DESCRIPTION",
+    "LOCATION",
+    "CATEGORIES",
+    "CREATED",
+    "LAST-MODIFIED",
+    "SEQUENCE",
+    "STATUS",
+    "ATTENDEE",
+    "ORGANIZER",
+    "REPEAT",
+    "RRULE",
+    "DUE",
+    "TRIGGER",
+    "URL",
+    "DTSTAMP",
+];
+
+#[derive(Debug)]
+pub struct Job {
+    pub summary: String,
+    pub description: String,
+    pub comment: String, //used to store the job id
+    pub no_start_before: Option<NaiveDateTime>,
+    pub deadline: NaiveDateTime,
+}
+
 #[derive(Debug)]
 pub struct CalorgCalendar {
     pub version: String,
@@ -38,146 +64,109 @@ pub struct CalorgCalendar {
 }
 
 impl CalorgCalendar {
-    pub fn new() -> CalorgCalendar {
-        CalorgCalendar {
+    pub fn new() -> Self {
+        Self {
             version: String::new(),
             prodid: String::new(),
             events: Vec::new(),
         }
     }
-    pub fn new_from_crate_ical(icalcal: IcalCalendar) -> CalorgCalendar {
-        let mut calendar = CalorgCalendar::new();
-        let verson = icalcal
-            .properties
+
+    fn get_property_value(properties: &[Property], name: &str, default: &str) -> String {
+        properties
             .iter()
-            .filter(|property| property.name == "VERSION")
-            .collect::<Vec<&Property>>()[0]
-            .value
-            .clone()
-            .unwrap_or("2.0".to_string());
-        let prodid = icalcal
-            .properties
-            .iter()
-            .filter(|property| property.name == "PRODID")
-            .collect::<Vec<&Property>>()[0]
-            .value
-            .clone()
-            .unwrap_or("-//Calorg//EN".to_string());
-        calendar.version = verson;
-        calendar.prodid = prodid;
-        for ical_event in icalcal.events {
-            let mut event = CalorgEvent::new();
-            for property in ical_event.properties {
-                match property.name.as_str() {
-                    "UID" => {
-                        event.set(CalorgKey::UID, property.value.unwrap());
+            .find(|property| property.name == name)
+            .and_then(|p| p.value.clone())
+            .unwrap_or_else(|| default.to_string())
+    }
+
+    pub fn new_from_crate_ical(icalcal: IcalCalendar) -> Self {
+        let mut calendar = Self::new();
+        calendar.version = Self::get_property_value(&icalcal.properties, "VERSION", "2.0");
+        calendar.prodid = Self::get_property_value(&icalcal.properties, "PRODID", "-//Calorg//EN");
+
+        calendar.events = icalcal
+            .events
+            .into_iter()
+            .map(|ical_event| {
+                let mut event = CalorgEvent::new();
+                for property in ical_event.properties {
+                    if let Some(value) = property.value {
+                        event.set(property.name, value);
                     }
-                    "ATTENDEE" => {
-                        event.set(CalorgKey::ATTENDEE, property.value.unwrap());
-                    }
-                    "CATEGORIES" => {
-                        event.set(CalorgKey::CATEGORIES, property.value.unwrap());
-                    }
-                    "DESCRIPTION" => {
-                        event.set(CalorgKey::DESCRIPTION, property.value.unwrap());
-                    }
-                    "COMMENT" => {
-                        event.set(CalorgKey::COMMENT, property.value.unwrap());
-                    }
-                    "DTSTART" => {
-                        event.set(CalorgKey::DTSTART, property.value.unwrap());
-                    }
-                    "DTEND" => {
-                        event.set(CalorgKey::DTEND, property.value.unwrap());
-                    }
-                    "DUE" => {
-                        event.set(CalorgKey::DUE, property.value.unwrap());
-                    }
-                    "ORGANIZER" => {
-                        event.set(CalorgKey::ORGANIZER, property.value.unwrap());
-                    }
-                    "REPEAT" => {
-                        event.set(CalorgKey::REPEAT, property.value.unwrap());
-                    }
-                    "SEQUENCE" => {
-                        event.set(CalorgKey::SEQUENCE, property.value.unwrap());
-                    }
-                    "STATUS" => {
-                        event.set(CalorgKey::STATUS, property.value.unwrap());
-                    }
-                    "SUMMARY" => {
-                        event.set(CalorgKey::SUMMARY, property.value.unwrap());
-                    }
-                    "TRIGGER" => {
-                        event.set(CalorgKey::TRIGGER, property.value.unwrap());
-                    }
-                    _ => {}
                 }
-            }
-            calendar.add(event);
-        }
+                event
+            })
+            .collect();
+
         calendar
     }
-    pub fn save_ics(&mut self, path: &str) {
+
+    pub fn save_ics(&self, path: &str) -> Result<()> {
         let mut ics_calendar = ICalendar::new(&self.version, &self.prodid);
         for event in &self.events {
-            let mut ics_event = Event::new(
-                event.get(CalorgKey::UID).unwrap(),
-                event.get(CalorgKey::DTSTART).unwrap(),
-            );
-            if let Some(attendee) = event.get_cloned(CalorgKey::ATTENDEE) {
-                ics_event.push(Attendee::new(attendee));
+            let mut ics_event =
+                Event::new(event.get("UID").unwrap(), event.get("DTSTAMP").unwrap());
+
+            for key in CALORG_KEYS {
+                if let Some(value) = event.get(key) {
+                    match key {
+                        "UID" => ics_event.push(UID::new(value)),
+                        "COMMENT" => ics_event.push(Comment::new(value)),
+                        "DTSTART" => ics_event.push(DtStart::new(value)),
+                        "DTEND" => ics_event.push(DtEnd::new(value)),
+                        "SUMMARY" => ics_event.push(Summary::new(value)),
+                        "DESCRIPTION" => ics_event.push(Description::new(value)),
+                        "LOCATION" => ics_event.push(Location::new(value)),
+                        "CATEGORIES" => ics_event.push(Categories::new(value)),
+                        "CREATED" => ics_event.push(Created::new(value)),
+                        "LAST-MODIFIED" => ics_event.push(LastModified::new(value)),
+                        "SEQUENCE" => ics_event.push(Sequence::new(value)),
+                        "STATUS" => ics_event.push(Status::new(value)),
+                        "ATTENDEE" => ics_event.push(Attendee::new(value)),
+                        "ORGANIZER" => ics_event.push(Organizer::new(value)),
+                        "REPEAT" => ics_event.push(Repeat::new(value)),
+                        "RRULE" => ics_event.push(RRule::new(value)),
+                        "DUE" => ics_event.push(Due::new(value)),
+                        "TRIGGER" => ics_event.push(Trigger::new(value)),
+                        "URL" => ics_event.push(URL::new(value)),
+                        "DTSTAMP" => ics_event.push(DtStamp::new(value)),
+                        _ => (),
+                    }
+                }
             }
-            if let Some(categories) = event.get_cloned(CalorgKey::CATEGORIES) {
-                ics_event.push(Categories::new(categories));
-            }
-            if let Some(description) = event.get_cloned(CalorgKey::DESCRIPTION) {
-                ics_event.push(Description::new(description));
-            }
-            if let Some(comment) = event.get_cloned(CalorgKey::COMMENT) {
-                ics_event.push(Comment::new(comment));
-            }
-            if let Some(dtend) = event.get_cloned(CalorgKey::DTEND) {
-                ics_event.push(DtEnd::new(dtend));
-            }
-            if let Some(dtstart) = event.get_cloned(CalorgKey::DTSTART) {
-                ics_event.push(DtStart::new(dtstart));
-            }
-            if let Some(due) = event.get_cloned(CalorgKey::DUE) {
-                ics_event.push(Due::new(due));
-            }
-            if let Some(organizer) = event.get_cloned(CalorgKey::ORGANIZER) {
-                ics_event.push(Organizer::new(organizer));
-            }
-            if let Some(repeat) = event.get_cloned(CalorgKey::REPEAT) {
-                ics_event.push(Repeat::new(repeat));
-            }
-            if let Some(sequence) = event.get_cloned(CalorgKey::SEQUENCE) {
-                ics_event.push(Sequence::new(sequence));
-            }
-            if let Some(status) = event.get_cloned(CalorgKey::STATUS) {
-                ics_event.push(Status::new(status));
-            }
-            if let Some(summary) = event.get_cloned(CalorgKey::SUMMARY) {
-                ics_event.push(Summary::new(summary));
-            }
-            if let Some(trigger) = event.get_cloned(CalorgKey::TRIGGER) {
-                ics_event.push(Trigger::new(trigger));
-            }
+
             ics_event.add_alarm(Alarm::new(Action::new("DISPLAY"), Trigger::new("-PT10M")));
             ics_calendar.add_event(ics_event);
         }
-        ics_calendar.save_file(path).unwrap();
+        ics_calendar.save_file(path)
     }
 
     pub fn add(&mut self, event: CalorgEvent) {
         self.events.push(event);
     }
-    pub fn search(&self, key: CalorgKey, value: &str) -> Vec<&CalorgEvent> {
+    pub fn search(&self, key: &str, value: &str) -> Vec<&CalorgEvent> {
         self.events
             .iter()
-            .filter(|event| event.get(key).unwrap() == value)
+            .filter(|event| event.get(key).map_or(false, |v| v == value))
             .collect()
+    }
+    pub fn search_mut(&mut self, key: &str, value: &str) -> Vec<&mut CalorgEvent> {
+        self.events
+            .iter_mut()
+            .filter(|event| event.get(key).map_or(false, |v| v == value))
+            .collect()
+    }
+    pub fn search_index(&self, key: &str, value: &str) -> Vec<usize> {
+        self.events
+            .iter()
+            .enumerate()
+            .filter(|(_, event)| event.get(key).map_or(false, |v| v == value))
+            .map(|(i, _)| i)
+            .collect()
+    }
+    pub fn get_event(&self, index: usize) -> Option<&CalorgEvent> {
+        self.events.get(index)
     }
 }
 
@@ -187,31 +176,9 @@ impl Default for CalorgCalendar {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
-pub enum CalorgKey {
-    UID,
-    COMMENT, // used for the id of the calorg event
-    DTSTART,
-    DTEND,
-    SUMMARY,
-    DESCRIPTION,
-    LOCATION,
-    CATEGORIES,
-    CREATED,
-    LAST_MODIFIED,
-    SEQUENCE,
-    STATUS,
-    ATTENDEE,
-    ORGANIZER,
-    REPEAT,
-    DUE,
-    TRIGGER,
-    URL,
-}
-
 #[derive(Debug)]
 pub struct CalorgEvent {
-    properties: HashMap<CalorgKey, String>,
+    properties: HashMap<String, String>,
 }
 
 impl CalorgEvent {
@@ -220,14 +187,44 @@ impl CalorgEvent {
             properties: HashMap::new(),
         }
     }
-    pub fn set(&mut self, key: CalorgKey, value: String) {
-        self.properties.insert(key, value.to_string());
+    // basic constructor with random uid, comment, dtstart, dtend, summary, description, location, categories, created, last-modified, status, dtstamp
+    pub fn new_basic(
+        comment: String,
+        dtstart: String,
+        dtend: String,
+        summary: String,
+        description: String,
+        location: String,
+        categories: String,
+    ) -> CalorgEvent {
+        let mut event = CalorgEvent::new();
+        let uid: String = rand::thread_rng().gen_range(0..10000000).to_string();
+        let created = chrono::Local::now().naive_local().to_string();
+        let last_modified = created.clone();
+        let status = "CONFIRMED".to_string();
+        let dtstamp = created.clone();
+        event.set("UID".to_string(), uid);
+        event.set("COMMENT".to_string(), comment);
+        event.set("DTSTART".to_string(), dtstart);
+        event.set("DTEND".to_string(), dtend);
+        event.set("SUMMARY".to_string(), summary);
+        event.set("DESCRIPTION".to_string(), description);
+        event.set("LOCATION".to_string(), location);
+        event.set("CATEGORIES".to_string(), categories);
+        event.set("CREATED".to_string(), created);
+        event.set("LAST-MODIFIED".to_string(), last_modified);
+        event.set("STATUS".to_string(), status);
+        event.set("DTSTAMP".to_string(), dtstamp);
+        event
     }
-    pub fn get(&self, key: CalorgKey) -> Option<&String> {
-        self.properties.get(&key)
+    pub fn set(&mut self, key: String, value: String) {
+        self.properties.insert(key, value);
     }
-    pub fn get_cloned(&self, key: CalorgKey) -> Option<String> {
-        self.properties.get(&key).cloned()
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.properties.get(key)
+    }
+    pub fn get_cloned(&self, key: &str) -> Option<String> {
+        self.properties.get(key).cloned()
     }
 }
 
@@ -243,24 +240,19 @@ pub fn get_ical_calendar(path: &str) -> IcalCalendar {
     let mut reader = IcalParser::new(buf);
     reader.next().unwrap().unwrap()
 }
-
+#[deprecated(note = "not optimized and missing some properties")]
 pub fn crate_ical_to_ics<'a>(icalcal: IcalCalendar) -> ICalendar<'a> {
-    let version = icalcal
-        .properties
-        .iter()
-        .filter(|property| property.name == "VERSION")
-        .collect::<Vec<&Property>>()[0]
-        .value
-        .clone()
-        .unwrap_or("2.0".to_string());
-    let prodid = icalcal
-        .properties
-        .iter()
-        .filter(|property| property.name == "PRODID")
-        .collect::<Vec<&Property>>()[0]
-        .value
-        .clone()
-        .unwrap_or("-//Calorg//EN".to_string());
+    let get_property_value = |name: &str, default: &str| {
+        icalcal
+            .properties
+            .iter()
+            .find(|property| property.name == name)
+            .and_then(|p| p.value.clone())
+            .unwrap_or_else(|| default.to_string())
+    };
+
+    let version = get_property_value("VERSION", "2.0");
+    let prodid = get_property_value("PRODID", "-//Calorg//EN");
 
     let mut calendar = ICalendar::new(version, prodid);
     for ical_event in icalcal.events {
@@ -276,51 +268,37 @@ pub fn crate_ical_to_ics<'a>(icalcal: IcalCalendar) -> ICalendar<'a> {
             ical_event
                 .properties
                 .iter()
-                .filter(|property| property.name == "DTSTART")
+                .filter(|property| property.name == "DTSTAMP")
                 .collect::<Vec<&Property>>()[0]
                 .value
                 .clone()
                 .unwrap_or("FAILED".to_string()),
         );
         for property in ical_event.properties {
-            match property.name.as_str() {
-                "ATTENDEE" => {
-                    event.push(Attendee::new(property.value.unwrap()));
+            if let Some(value) = property.value {
+                match property.name.as_str() {
+                    "UID" => event.push(UID::new(value)),
+                    "COMMENT" => event.push(Comment::new(value)),
+                    "DTSTART" => event.push(DtStart::new(value)),
+                    "DTEND" => event.push(DtEnd::new(value)),
+                    "SUMMARY" => event.push(Summary::new(value)),
+                    "DESCRIPTION" => event.push(Description::new(value)),
+                    "LOCATION" => event.push(Location::new(value)),
+                    "CATEGORIES" => event.push(Categories::new(value)),
+                    "CREATED" => event.push(Created::new(value)),
+                    "LAST-MODIFIED" => event.push(LastModified::new(value)),
+                    "SEQUENCE" => event.push(Sequence::new(value)),
+                    "STATUS" => event.push(Status::new(value)),
+                    "ATTENDEE" => event.push(Attendee::new(value)),
+                    "ORGANIZER" => event.push(Organizer::new(value)),
+                    "REPEAT" => event.push(Repeat::new(value)),
+                    "RRULE" => event.push(RRule::new(value)),
+                    "DUE" => event.push(Due::new(value)),
+                    "TRIGGER" => event.push(Trigger::new(value)),
+                    "URL" => event.push(URL::new(value)),
+                    "DTSTAMP" => event.push(DtStamp::new(value)),
+                    _ => (),
                 }
-                "CATEGORIES" => {
-                    event.push(Categories::new(property.value.unwrap()));
-                }
-                "DESCRIPTION" => {
-                    event.push(Description::new(property.value.unwrap()));
-                }
-                "COMMENT" => {
-                    event.push(Comment::new(property.value.unwrap()));
-                }
-                "DTEND" => {
-                    event.push(DtEnd::new(property.value.unwrap()));
-                }
-                "DUE" => {
-                    event.push(Due::new(property.value.unwrap()));
-                }
-                "ORGANIZER" => {
-                    event.push(Organizer::new(property.value.unwrap()));
-                }
-                "REPEAT" => {
-                    event.push(Repeat::new(property.value.unwrap()));
-                }
-                "SEQUENCE" => {
-                    event.push(Sequence::new(property.value.unwrap()));
-                }
-                "STATUS" => {
-                    event.push(Status::new(property.value.unwrap()));
-                }
-                "SUMMARY" => {
-                    event.push(Summary::new(property.value.unwrap()));
-                }
-                "TRIGGER" => {
-                    event.push(Trigger::new(property.value.unwrap()));
-                }
-                _ => {}
             }
         }
         calendar.add_event(event);
@@ -328,7 +306,8 @@ pub fn crate_ical_to_ics<'a>(icalcal: IcalCalendar) -> ICalendar<'a> {
     calendar
 }
 
-pub fn save_ics_calendar(path: &str, calendar: ICalendar) -> Result<(), std::io::Error> {
+#[deprecated]
+pub fn save_ics_calendar(path: &str, calendar: ICalendar) -> Result<()> {
     calendar.save_file(path)
 }
 
