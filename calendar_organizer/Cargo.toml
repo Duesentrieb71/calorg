@@ -11,6 +11,7 @@ ics = "0.5.8"
 chrono = "0.4.31"
 chrono-tz = "0.8.3"
 rand = "0.8.5"
+uuid = "1.4.1"
 [dependencies.ical]
 version = "0.8.0"
 default-features = false

@@ -1,15 +1,17 @@
 extern crate ical;
+extern crate uuid;
 use crate::ical::generator::{IcalCalendar, Property};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use chrono::{Datelike, Timelike};
 use chrono_tz::Europe::Berlin;
+use chrono_tz::Tz;
 use ical::IcalParser;
 use ics::properties::*;
 use ics::{Alarm, Event, ICalendar};
-use rand::Rng;
-use std::any::Any;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Error, Result};
+use std::io::{BufReader, Result};
+use uuid::Uuid;
 
 pub fn naive_convert_berlin_to_utc(naive_datetime: NaiveDateTime) -> NaiveDateTime {
     let datetime: DateTime<chrono_tz::Tz> = Berlin.from_local_datetime(&naive_datetime).unwrap();
@@ -21,6 +23,46 @@ pub fn naive_convert_utc_to_berlin(naive_datetime: NaiveDateTime) -> NaiveDateTi
     let datetime: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive_datetime, Utc);
     let datetime_berlin: DateTime<chrono_tz::Tz> = datetime.with_timezone(&Berlin);
     datetime_berlin.naive_local()
+}
+
+fn generate_ical_datetime(
+    property: &str,
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+) -> String {
+    let dt = Berlin
+        .with_ymd_and_hms(year, month, day, hour, minute, second)
+        .unwrap();
+
+    format!(
+        "{};TZID=Europe/Berlin:{}{:02}{:02}T{:02}{:02}{:02}",
+        property,
+        dt.year(),
+        dt.month(),
+        dt.day(),
+        dt.hour(),
+        dt.minute(),
+        dt.second()
+    )
+}
+
+fn generate_ical_datetime_current(property: &str) -> String {
+    let dt = Tz::Europe_Berlin.now();
+
+    format!(
+        "{};TZID=Europe/Berlin:{}{:02}{:02}T{:02}{:02}{:02}",
+        property,
+        dt.year(),
+        dt.month(),
+        dt.day(),
+        dt.hour(),
+        dt.minute(),
+        dt.second()
+    )
 }
 
 //supported properties
@@ -187,19 +229,20 @@ impl CalorgEvent {
             properties: HashMap::new(),
         }
     }
-    // basic constructor with random uid, comment, dtstart, dtend, summary, description, location, categories, created, last-modified, status, dtstamp
+    // basic constructor with uid, comment, dtstart, dtend, summary, description, location, categories, created, last-modified, status, dtstamp
     pub fn new_basic(
+        uid: String,
         comment: String,
         dtstart: String,
         dtend: String,
         summary: String,
         description: String,
-        location: String,
         categories: String,
     ) -> CalorgEvent {
         let mut event = CalorgEvent::new();
-        let uid: String = rand::thread_rng().gen_range(0..10000000).to_string();
-        let created = chrono::Local::now().naive_local().to_string();
+        let uid: String = uid;
+        //Berlin Timezone
+        let created = generate_ical_datetime("CREATED", 2021, 1, 1, 0, 0, 0);
         let last_modified = created.clone();
         let status = "CONFIRMED".to_string();
         let dtstamp = created.clone();
@@ -209,7 +252,6 @@ impl CalorgEvent {
         event.set("DTEND".to_string(), dtend);
         event.set("SUMMARY".to_string(), summary);
         event.set("DESCRIPTION".to_string(), description);
-        event.set("LOCATION".to_string(), location);
         event.set("CATEGORIES".to_string(), categories);
         event.set("CREATED".to_string(), created);
         event.set("LAST-MODIFIED".to_string(), last_modified);
@@ -225,6 +267,10 @@ impl CalorgEvent {
     }
     pub fn get_cloned(&self, key: &str) -> Option<String> {
         self.properties.get(key).cloned()
+    }
+    pub fn set_rrule(&mut self, freq: &str, until: &str) {
+        let rrule = format!("FREQ={};UNTIL={}", freq, until);
+        self.set("RRULE".to_string(), rrule);
     }
 }
 
